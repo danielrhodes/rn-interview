@@ -9,13 +9,16 @@
  */
 
 import React from 'react';
+import SortableGridView from 'react-native-sortable-gridview';
 import {
   SafeAreaView,
   StyleSheet,
-  ScrollView,
   View,
-  Text,
+  Image,
   StatusBar,
+  TouchableHighlight,
+  Alert,
+  Button,
 } from 'react-native';
 
 import {
@@ -31,90 +34,149 @@ declare const global: {HermesInternal: null | {}};
 ////////////////////////////////////////////////////////////////////////////////
 // INTERVIEW NOTES: START WITH THIS COMPONENT FOR YOUR IMPLEMENTATION
 ////////////////////////////////////////////////////////////////////////////////
+
+type APIGetPhotosResponse = {
+  id: string;
+  memberId: string;
+  photos: APIPhoto[];
+};
+
+type APIPhoto = {
+  id: string;
+  url: string;
+  width: number;
+  height: number;
+};
+
+type APIPostPhotosRequest = {
+  id: string;
+  memberId: string;
+  photos: APIPhoto[];
+};
+
+const ENDPOINT = 'http://localhost:3000/member/1/photos';
+const PHOTO_URL =
+  'https://cdn.dnaindia.com/sites/default/files/styles/full/public/2020/03/14/897865-bill-gates.jpg';
+
 const App = () => {
+  let [photos, setPhotos] = React.useState<APIPhoto[] | null>();
+
+  React.useEffect(() => {
+    fetchPhotos();
+  }, []);
+
+  const fetchPhotos = () => {
+    fetch(ENDPOINT)
+      .then((result) => {
+        return result.json();
+      })
+      .then((data) => {
+        setPhotos(data[0].photos);
+      });
+  };
+
+  const onMakePrimary = (photo: APIPhoto) => {
+    if (photos) {
+      let newPhotos = photos.filter((item) => {
+        return item.id !== photo.id;
+      });
+      let newPrimary = [photo, ...newPhotos];
+      setPhotos(newPrimary);
+    }
+  };
+
+  const removePhoto = (photo: APIPhoto) => {
+    if (photos) {
+      setPhotos(
+        photos.filter((item) => {
+          return item.id !== photo.id;
+        }),
+      );
+    }
+  };
+
+  const createNewPhoto = () => {
+    if (photos) {
+      let photo = {
+        id:
+          Math.random().toString(36).substring(2, 15) +
+          Math.random().toString(36).substring(2, 15),
+        url: PHOTO_URL,
+        width: 796,
+        height: 800,
+        centerX: 366,
+        centerY: 408,
+      };
+
+      fetch(ENDPOINT, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(photo),
+      })
+        .then((result) => {
+          return result.json();
+        })
+        .then((data) => {
+          if (photos) {
+            let newPhotos = [...photos];
+            newPhotos.unshift(data);
+            setPhotos(newPhotos);
+          }
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    }
+  };
+
   return (
     <>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          style={styles.scrollView}>
-          <Header />
-          {global.HermesInternal == null ? null : (
-            <View style={styles.engine}>
-              <Text style={styles.footer}>Engine: Hermes</Text>
-            </View>
-          )}
-          <View style={styles.body}>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Step One</Text>
-              <Text style={styles.sectionDescription}>
-                Edit <Text style={styles.highlight}>App.tsx</Text> to change
-                this screen and then come back to see your edits.
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>See Your Changes</Text>
-              <Text style={styles.sectionDescription}>
-                <ReloadInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Debug</Text>
-              <Text style={styles.sectionDescription}>
-                <DebugInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Learn More</Text>
-              <Text style={styles.sectionDescription}>
-                Read the docs to discover what to do next:
-              </Text>
-            </View>
-            <LearnMoreLinks />
-          </View>
-        </ScrollView>
+        <Button title="Add Photo" color="#000" onPress={createNewPhoto} />
+        {photos && (
+          <SortableGridView
+            data={photos}
+            numPerRow={3}
+            aspectRatio={1.2}
+            gapWidth={8}
+            renderItem={(item: APIPhoto) => {
+              return (
+                <View>
+                  <TouchableHighlight
+                    onPress={() => {
+                      onMakePrimary(item);
+                    }}
+                    onLongPress={() => {
+                      removePhoto(item);
+                    }}>
+                    <Image style={styles.imageThumbnail} source={[item]} />
+                  </TouchableHighlight>
+                </View>
+              );
+            }}
+          />
+        )}
       </SafeAreaView>
     </>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollView: {
-    backgroundColor: Colors.lighter,
+  MainContainer: {
+    justifyContent: 'center',
+    flex: 1,
+    paddingTop: 30,
   },
-  engine: {
-    position: 'absolute',
-    right: 0,
-  },
-  body: {
-    backgroundColor: Colors.white,
-  },
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.black,
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-    color: Colors.dark,
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-  footer: {
-    color: Colors.dark,
-    fontSize: 12,
-    fontWeight: '600',
-    padding: 4,
-    paddingRight: 12,
-    textAlign: 'right',
+  imageThumbnail: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100%',
+    width: '100%',
+    backgroundColor: '#CCCCCC',
   },
 });
 
